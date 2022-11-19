@@ -21,6 +21,10 @@ else:
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
                 #print('%s = %s' % (name.prettyPrint(), val.prettyPrint()))
-                tmp = str(name)+' = '+str(val)
-                #print(tmp)
+                #print(str(val))
+                #sim = val.prettyPrint()
+                #print(type(sim))
+                tmp = name.prettyPrint()+' = '+val.prettyPrint()
+                #print(val2)
+                #print(type(tmp))
                 result.append(tmp)
