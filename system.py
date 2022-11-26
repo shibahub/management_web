@@ -14,7 +14,7 @@ else:
     else:
         for varBindTableRow in varBindTable:
             for name, val in varBindTableRow:
-                tmp = str(name)+' = '+str(val)
+                tmp = name.prettyPrint()+' = '+val.prettyPrint()
                 #print(tmp)
                 result.append(tmp)
                 #print (f"{name.prettyPrint()} = {val.prettyPrint() or 'Unknown'}")
