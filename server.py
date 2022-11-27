@@ -4,10 +4,19 @@
 
 from http.server import BaseHTTPRequestHandler
 from importlib.resources import path
+from posixpath import split
 from route import routes
 from pathlib import Path
 from pysnmp.entity.rfc3413.oneliner import cmdgen
 from pysnmp.hlapi import *  
+import mysql.connector
+import test
+mydb = mysql.connector.connect(
+  host="localhost",
+  user="root",
+  password=test.x,
+  database = 'net_man'
+)
 IR=[]
 IE=[]
 OR=[]
@@ -236,26 +245,58 @@ class Server(BaseHTTPRequestHandler):
                 global OE
                 global IR
                 global OR
+                mycursor = mydb.cursor()
+                mycursor.execute('USE net_man;')
                 for i in result:
                     
                     tmp = i.split(' = ')
                     tmp2 = tmp[0].split('SNMPv2-SMI::mib-')
                     if "2.5.8.0" in i :
                         response_content+=f'<tr><td>ICMPInEchos ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
-                        IE.append(int(tmp[1]))
-                        print(IE)
+                        sql = "INSERT INTO Echo_icmp (name, amount) VALUES (%s, %s)"
+                        mycursor.execute(sql, (tmp2[1],tmp[1]))
+                        #print('success add IE')
+                        #IE.append(int(tmp[1]))
+                        #print(IE)
                     if "2.5.9.0" in i :
                         response_content+=f'<tr><td>ICMPInEchosReps ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
-                        IR.append(int(tmp[1]))
+                        #IR.append(int(tmp[1]))
+                        sql = "INSERT INTO Echo_icmp (name, amount) VALUES (%s, %s)"
+                        mycursor.execute(sql, (tmp2[1],tmp[1]))
+                        #print('success add IR')
                         #IR+=str(tmp[1])+','
                     if "2.5.21.0" in i :
                         response_content+=f'<tr><td>ICMPOutEchos ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
-                        OE.append(int(tmp[1]))
+                        #OE.append(int(tmp[1]))
+                        sql = "INSERT INTO Echo_icmp (name, amount) VALUES (%s, %s)"
+                        mycursor.execute(sql, (tmp2[1],tmp[1]))
+                        #print('success add OE')
                         #OE+=str(tmp[1])+','
                     if "2.5.22.0" in i :
                         response_content+=f'<tr><td>ICMPOutEchosReps ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
-                        OR.append(int(tmp[1]))
+                        sql = "INSERT INTO Echo_icmp (name, amount) VALUES (%s, %s)"
+                        mycursor.execute(sql, (tmp2[1],tmp[1]))
+                        #print('success add OR')
+                        #OR.append(int(tmp[1]))
+                        
                         #OR+=str(tmp[1])+','
+                mycursor.execute('Select * from Echo_icmp;')
+                result = mycursor.fetchall()
+                for i in result:
+
+                    tmp = str(i).split("'")
+                    if "2.5.8.0" in tmp[1] :
+                        IE.append(tmp[3])
+                    elif "2.5.9.0" in i :
+                        IR.append(tmp[3])
+                    elif "2.5.21.0" in i :
+                        OE.append(tmp[3])
+                    elif "2.5.22.0" in i :
+                        OR.append(tmp[3])
+                #print(IR)
+                time=[]
+                for i in range(0,len(IE)):
+                    time.append(i)
                 response_content+="</div>"
                 response_content+='<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>\
                     <canvas id="myChart" style="width:100%;max-width:600px"></canvas>\
@@ -283,10 +324,15 @@ class Server(BaseHTTPRequestHandler):
                         borderColor: "black",\
                         fill: false\
                         }]\
-                    },\
-                    });\
-                    </script>'
-                response_content+="</HTML>"
+                    },'
+                   
+                response_content+="options: {\
+                legend: {display: true,\
+   			    }\
+                }\
+                });\
+                </script>\
+                </HTML>"
                 self.send_response(status)
                 self.send_header('Content-type', content_type)
                 self.end_headers()
