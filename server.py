@@ -6,8 +6,14 @@ from http.server import BaseHTTPRequestHandler
 from importlib.resources import path
 from route import routes
 from pathlib import Path
-from pysnmp.entity.rfc3413.oneliner import cmdgen  
+from pysnmp.entity.rfc3413.oneliner import cmdgen
+from pysnmp.hlapi import *  
+IR=[]
+IE=[]
+OR=[]
+OE=[]
 class Server(BaseHTTPRequestHandler):
+    
     def do_HEAD(self):
         return
     def do_POST(self):
@@ -20,7 +26,7 @@ class Server(BaseHTTPRequestHandler):
         status = 200
         content_type = 'text/plain'
         #print(checker)
-            
+  
         if self.path in routes:
             if self.path=='/':
                 content_type = 'text/html'
@@ -166,6 +172,7 @@ class Server(BaseHTTPRequestHandler):
                 return bytes(response_content,"UTF-8")
 
             else:
+                
                 content_type = 'text/html'
                 #print(type(routes[self.path]))
                 response_content =''
@@ -192,18 +199,96 @@ class Server(BaseHTTPRequestHandler):
                                                     }
                                             </style>
                                     <h1>ICMP Echo</h1>"""
+                response_content+="<div>"
                 response_content+=f"<Table> <tr>\
                     <th>Info.</th>\
                     <th>count</th><tr>"
-                for i in routes[self.path]:
+                
+                #print(routes[self.path])
+                result=[]
+
+                errorIndication, errorStatus, errorIndex, varBinds = next(
+                    getCmd(SnmpEngine(),
+                        CommunityData('public'),
+                        UdpTransportTarget(('127.0.0.1', 161)),
+                        ContextData(),
+                        #icmpInEchos
+                        ObjectType(ObjectIdentity('1.3.6.1.2.1.5.8.0')),
+                        #icmpInEchosReq
+                        ObjectType(ObjectIdentity('1.3.6.1.2.1.5.9.0')),
+                        #icmpOutEchos
+                        ObjectType(ObjectIdentity('1.3.6.1.2.1.5.21.0')),
+                        #icmpOutEchosReps
+                        ObjectType(ObjectIdentity('1.3.6.1.2.1.5.22.0')))
+                )
+
+                if errorIndication:
+                    print(errorIndication)
+                elif errorStatus:
+                    print('%s at %s' % (errorStatus.prettyPrint(),
+                                        errorIndex and varBinds[int(errorIndex) - 1][0] or '?'))
+                else:
+                    for varBind in varBinds:
+                        #print(' = '.join([x.prettyPrint() for x in varBind]))
+                        result.append(str(varBind))
+                        
+                global IE
+                global OE
+                global IR
+                global OR
+                for i in result:
+                    
                     tmp = i.split(' = ')
                     tmp2 = tmp[0].split('SNMPv2-SMI::mib-')
-                    response_content+=f'<tr><td>{tmp2[1]}</td><td>{tmp[1]}</td></tr>'
+                    if "2.5.8.0" in i :
+                        response_content+=f'<tr><td>ICMPInEchos ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
+                        IE.append(int(tmp[1]))
+                        print(IE)
+                    if "2.5.9.0" in i :
+                        response_content+=f'<tr><td>ICMPInEchosReps ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
+                        IR.append(int(tmp[1]))
+                        #IR+=str(tmp[1])+','
+                    if "2.5.21.0" in i :
+                        response_content+=f'<tr><td>ICMPOutEchos ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
+                        OE.append(int(tmp[1]))
+                        #OE+=str(tmp[1])+','
+                    if "2.5.22.0" in i :
+                        response_content+=f'<tr><td>ICMPOutEchosReps ({tmp2[1]})</td><td>{tmp[1]}</td></tr>'
+                        OR.append(int(tmp[1]))
+                        #OR+=str(tmp[1])+','
+                response_content+="</div>"
+                response_content+='<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js"></script>\
+                    <canvas id="myChart" style="width:100%;max-width:600px"></canvas>\
+                    <script>\
+                    var xValues = [1,2,3,4,5,6,7,8,9,10];\
+                    new Chart("myChart", {\
+                    type: "line",\
+                    data: {\
+                        labels: xValues,\
+                        datasets: [{ \
+                        data: '+str(IE)+',\
+                        borderColor: "red",\
+                        fill: false\
+                        }, { \
+                        data: '+str(IR)+',\
+                        borderColor: "blue",\
+                        fill: false\
+                        }, { \
+                        }, { \
+                        data: '+str(OE)+',\
+                        borderColor: "green",\
+                        fill: false\
+                        }, { \
+                        data: '+str(OR)+',\
+                        borderColor: "black",\
+                        fill: false\
+                        }]\
+                    },\
+                    });\
+                    </script>'
                 response_content+="</HTML>"
-                print(routes[self.path])
                 self.send_response(status)
                 self.send_header('Content-type', content_type)
-                #self.send_response(response_content)
                 self.end_headers()
                 return bytes(response_content,"UTF-8")
             #checker=True
